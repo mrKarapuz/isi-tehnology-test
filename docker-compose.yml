@@ -1,0 +1,65 @@
+version: "3.3"
+services:
+
+  redis:
+    image: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      isi_test_network:
+        aliases:
+          - redis.isi_test_network
+
+  django:
+    restart: always
+    container_name: django
+    volumes:
+      - ./media:/media
+      - ./static:/static
+      - ./logs:/logs
+      - ./config/uwsgi:/etc
+    env_file:
+      - ./.docker.env
+    build:
+      context: .
+      dockerfile: config/docker/Dockerfile
+    depends_on:
+      - db
+      - redis
+    command: uwsgi --ini /etc/uwsgi.ini
+    ports:
+      - "8000:8000"
+    networks:
+      isi_test_network:
+        aliases:
+          - django.isi_test_network
+
+  nginx:
+    restart: always
+    container_name: nginx
+    volumes:
+      - ./media:/media
+      - ./static:/static
+      - ./logs:/logs
+    build:
+      context: .
+      dockerfile: config/docker/nginx.dockerfile
+    depends_on:
+      - django
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      isi_test_network:
+        aliases:
+          - nginx.isi_test_network
+
+
+networks:
+  isi_test_network:
+    external: true
